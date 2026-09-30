@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Madrasa Mark List Tool - Faris Zaini</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    
     <style>
         :root { --primary: #1a5f7a; --secondary: #27ae60; --accent: #e67e22; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 10px; margin: 0; }
-        
         .wizard-card { max-width: 950px; margin: 20px auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
         .step { display: none; }
         .step.active { display: block; animation: fadeIn 0.3s ease-in; }
@@ -16,8 +17,10 @@
 
         h2 { color: var(--primary); text-align: center; border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-top: 0; }
         .input-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; color: #444; }
-        input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .row-group { display: flex; gap: 10px; }
+        .row-group .input-group { flex: 1; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #444; font-size: 14px; }
+        input[type="text"], input[type="number"], input[type="date"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
         
         .table-container { overflow-x: auto; margin-top: 15px; border-radius: 8px; }
         table { width: 100%; border-collapse: collapse; background: white; }
@@ -26,50 +29,48 @@
         .data-input { width: 55px; text-align: center; padding: 5px; border: 1px solid #ddd; border-radius: 4px; }
 
         .btn-row { margin-top: 30px; display: flex; justify-content: center; gap: 15px; flex-wrap: wrap; }
-        button { padding: 12px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button { padding: 12px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .next { background: var(--secondary); color: white; }
         .back { background: #95a5a6; color: white; }
         .download { background: var(--accent); color: white; width: 100%; max-width: 300px; font-size: 1.1em; }
 
-        #preview-wrapper { background: #525659; padding: 20px 10px; overflow-x: auto; border-radius: 8px; }
-        #pdf-template { width: 210mm; min-height: 297mm; padding: 15mm; background: white; margin: 0 auto; box-sizing: border-box; color: black; position: relative; }
+        /* Signature & Preview */
+        .sig-wrapper { border: 1px solid #000; background: #fff; margin-bottom: 5px; border-radius: 4px; touch-action: none; }
+        canvas { width: 100%; height: 100px; display: block; }
+        .clear-btn { background: #e74c3c; color: white; padding: 5px 10px; font-size: 10px; border-radius: 3px; border: none; cursor: pointer; }
 
+        #preview-wrapper { background: #525659; padding: 20px 10px; overflow-x: auto; border-radius: 8px; }
+        #pdf-template { width: 210mm; min-height: 297mm; padding: 15mm; background: white; margin: 0 auto; box-sizing: border-box; color: black; }
         .pdf-header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px; }
         .total-box { float: right; border: 2px solid #000; padding: 10px; margin-top: 20px; min-width: 150px; text-align: center; font-weight: bold; }
         .clear { clear: both; }
 
-        .sig-section { margin-top: 50px; }
-        .sig-row { display: flex; justify-content: space-between; margin-top: 40px; }
-        .sig-box { width: 45%; }
-        .sig-line { border-top: 1px solid #000; margin-top: 40px; text-align: center; padding-top: 5px; }
+        .sig-section { margin-top: 30px; }
+        .sig-row { display: flex; justify-content: space-between; margin-top: 20px; }
+        .sig-box { width: 45%; text-align: center; }
+        .rendered-sig { max-height: 60px; width: auto; margin-bottom: 5px; display: none; }
+        .sig-line { border-top: 1px solid #000; padding-top: 5px; font-weight: bold; }
 
-        /* Donation Section (Web Only) */
-        .donation-box {
-            background: #fffde7;
-            border: 1px dashed #fbc02d;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .web-footer {
-            text-align: center;
-            margin-top: 40px;
-            padding: 20px;
-            font-size: 14px;
-            color: #666;
-            border-top: 1px solid #eee;
-        }
+        .donation-box { background: #fffde7; border: 1px dashed #fbc02d; padding: 15px; margin: 20px 0; border-radius: 8px; text-align: center; }
+        .web-footer { text-align: center; margin-top: 40px; padding: 20px; font-size: 14px; color: #666; border-top: 1px solid #eee; }
     </style>
 </head>
 <body>
 
 <div class="wizard-card">
     <div class="step active" id="step1">
-        <h2>മദ്രസ വിവരങ്ങൾ</h2>
+        <h2>മദ്രസ & റെയ്ഞ്ച് വിവരങ്ങൾ</h2>
+        <div class="input-group"><label>റെയ്ഞ്ചിന്റെ പേര്</label><input type="text" id="m_range_name" value="എറണാകുളം റെയ്ഞ്ച്"></div>
+        <div class="row-group">
+            <div class="input-group"><label>റെയ്ഞ്ച് Reg. No</label><input type="text" id="m_range_reg" value="159"></div>
+            <div class="input-group"><label>മദ്രസ Reg. No</label><input type="text" id="m_reg"></div>
+        </div>
         <div class="input-group"><label>മദ്രസയുടെ പേര്</label><input type="text" id="m_name"></div>
-        <div class="input-group"><label>രജിസ്റ്റർ നമ്പർ</label><input type="text" id="m_reg"></div>
         <div class="input-group"><label>പരീക്ഷാ തരം</label><input type="text" id="m_type" placeholder="ഉദാ: വാർഷിക പരീക്ഷ 2026"></div>
+        <div class="row-group">
+            <div class="input-group"><label>സ്ഥലം</label><input type="text" id="m_place" placeholder="മദ്രസ സ്ഥിതി ചെയ്യുന്ന സ്ഥലം"></div>
+            <div class="input-group"><label>തീയതി</label><input type="date" id="m_date"></div>
+        </div>
         <div class="btn-row"><button class="next" onclick="changeStep(2)">അടുത്തത് &rarr;</button></div>
     </div>
 
@@ -78,15 +79,8 @@
         <div class="table-container">
             <table>
                 <thead>
-                    <tr>
-                        <th rowspan="2">ക്ലാസ്സ്</th>
-                        <th colspan="2">വിദ്യാർത്ഥികൾ</th>
-                        <th colspan="2">പങ്കെടുത്തവർ</th>
-                        <th colspan="2">വിജയിച്ചവർ</th>
-                    </tr>
-                    <tr>
-                        <th>M</th><th>F</th><th>M</th><th>F</th><th>M</th><th>F</th>
-                    </tr>
+                    <tr><th rowspan="2">ക്ലാസ്സ്</th><th colspan="2">വിദ്യാർത്ഥികൾ</th><th colspan="2">പങ്കെടുത്തവർ</th><th colspan="2">വിജയിച്ചവർ</th></tr>
+                    <tr><th>M</th><th>F</th><th>M</th><th>F</th><th>M</th><th>F</th></tr>
                 </thead>
                 <tbody id="input-rows"></tbody>
             </table>
@@ -98,36 +92,22 @@
     </div>
 
     <div class="step" id="step3">
-        <h2>റിവ്യൂ & ഡൗൺലോഡ്</h2>
-        
-        <div class="donation-box">
-            <p style="margin:0; font-weight:bold; color:#d32f2f;">ഈ ടൂൾ നിങ്ങൾക്ക് ഉപകാരപ്പെട്ടോ?</p>
-            <p style="margin:5px 0; font-size:13px;">ഇതിന്റെ പ്രവർത്തനങ്ങളെ പിന്തുണക്കാൻ താൽപ്പര്യമുണ്ടെങ്കിൽ ഒരു ചെറിയ തുക Donation ആയി നൽകാവുന്നതാണ്. <br><b>GPay: 9895993822</b></p>
-        </div>
+        <h2>റിവ്യൂ & സിഗ്നേച്ചർ</h2>
+        <div class="donation-box">GPay: <b>9895993822</b> (Support Faris Zaini)</div>
 
         <div id="preview-wrapper">
             <div id="pdf-template">
                 <div class="pdf-header">
                     <h3>സുന്നി ജംഇയ്യത്തുൽ മുഅല്ലിമീൻ </h3>
-                    <h4>എറണാകുളം റെയ്ഞ്ച്- Reg. No: 159</h4>
+                    <h4><span id="p_range_name"></span>- Reg. No: <span id="p_range_reg"></span></h4>
                     <p><b><span id="p_type"></span></b> പരീക്ഷാ റിപ്പോർട്ട് </p>
                     <p>മദ്രസ: <b><span id="p_name"></span></b> | Reg No: <b><span id="p_reg"></span></b></p>
                 </div>
 
                 <table style="width: 100%; border: 1px solid #000;">
                     <thead>
-                        <tr>
-                            <th rowspan="2">ക്ലാസ്സ്</th>
-                            <th colspan="3">വിദ്യാർത്ഥികൾ</th>
-                            <th colspan="3">പങ്കെടുത്തവർ</th>
-                            <th colspan="3">വിജയിച്ചവർ</th>
-                            <th rowspan="2">%</th>
-                        </tr>
-                        <tr>
-                            <th>M</th><th>F</th><th>Tot</th>
-                            <th>M</th><th>F</th><th>Tot</th>
-                            <th>M</th><th>F</th><th>Tot</th>
-                        </tr>
+                        <tr><th rowspan="2">ക്ലാസ്സ്</th><th colspan="3">വിദ്യാർത്ഥികൾ</th><th colspan="3">പങ്കെടുത്തവർ</th><th colspan="3">വിജയിച്ചവർ</th><th rowspan="2">%</th></tr>
+                        <tr><th>M</th><th>F</th><th>Tot</th><th>M</th><th>F</th><th>Tot</th><th>M</th><th>F</th><th>Tot</th></tr>
                     </thead>
                     <tbody id="pdf-rows"></tbody>
                     <tr style="font-weight:bold; background:#f2f2f2;" id="footer-row"></tr>
@@ -137,16 +117,15 @@
                 <div class="clear"></div>
 
                 <div class="sig-section">
-                    <p>സ്ഥലം: ........................................</p>
-                    <p>തീയതി: ........................................</p>
+                    <p>സ്ഥലം: <b><span id="p_place"></span></b> &nbsp;&nbsp;&nbsp; തീയതി: <b><span id="p_date"></span></b></p>
                     <div class="sig-row">
                         <div class="sig-box">
-                            <p>സദർ മുഅല്ലിം പേര്: ...........................</p>
-                            <div class="sig-line">ഒപ്പ്</div>
+                            <div class="no-print-sig"><div class="sig-wrapper"><canvas id="sig-pad-1"></canvas></div><button class="clear-btn" onclick="sig1.clear()">Clear</button></div>
+                            <img id="sig-img-1" class="rendered-sig"><div class="sig-line">സദർ മുഅല്ലിം</div>
                         </div>
-                        <div class="sig-box" style="text-align: right;">
-                            <p>മാനേജ്മെന്റ് പേര്: ...........................</p>
-                            <div class="sig-line">ഒപ്പ്</div>
+                        <div class="sig-box">
+                            <div class="no-print-sig"><div class="sig-wrapper"><canvas id="sig-pad-2"></canvas></div><button class="clear-btn" onclick="sig2.clear()">Clear</button></div>
+                            <img id="sig-img-2" class="rendered-sig"><div class="sig-line">മാനേജ്‌മെന്റ്</div>
                         </div>
                     </div>
                 </div>
@@ -158,78 +137,86 @@
             <button class="download" onclick="generatePDF()">DOWNLOAD PDF</button>
         </div>
     </div>
-
-    <div class="web-footer">
-        Developed by: <b>Faris Zaini Mannarkkad</b><br>
-        Contact: 9895993822
-    </div>
+    <div class="web-footer">Developed by: <b>Faris Zaini Mannarkkad</b> (9895993822)</div>
 </div>
 
 <script>
     const classes = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
     const inputBody = document.getElementById('input-rows');
+    let sig1, sig2;
 
-    // Generate Input Rows
     classes.forEach(cls => {
         inputBody.innerHTML += `<tr><td><b>${cls}</b></td>
-            <td><input type="number" id="sm_${cls}" class="data-input"></td>
-            <td><input type="number" id="sf_${cls}" class="data-input"></td>
-            <td><input type="number" id="am_${cls}" class="data-input"></td>
-            <td><input type="number" id="af_${cls}" class="data-input"></td>
-            <td><input type="number" id="pm_${cls}" class="data-input"></td>
-            <td><input type="number" id="pf_${cls}" class="data-input"></td></tr>`;
+            <td><input type="number" id="sm_${cls}" class="data-input"></td><td><input type="number" id="sf_${cls}" class="data-input"></td>
+            <td><input type="number" id="am_${cls}" class="data-input"></td><td><input type="number" id="af_${cls}" class="data-input"></td>
+            <td><input type="number" id="pm_${cls}" class="data-input"></td><td><input type="number" id="pf_${cls}" class="data-input"></td></tr>`;
     });
+
+    function initSignaturePads() {
+        const canvas1 = document.getElementById('sig-pad-1');
+        const canvas2 = document.getElementById('sig-pad-2');
+        sig1 = new SignaturePad(canvas1); sig2 = new SignaturePad(canvas2);
+        const resizeCanvas = () => {
+            [canvas1, canvas2].forEach(c => {
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                c.width = c.offsetWidth * ratio; c.height = c.offsetHeight * ratio;
+                c.getContext("2d").scale(ratio, ratio);
+            });
+            sig1.clear(); sig2.clear();
+        };
+        window.onresize = resizeCanvas; resizeCanvas();
+    }
 
     function changeStep(s) {
         document.querySelectorAll('.step').forEach(div => div.classList.remove('active'));
         document.getElementById('step' + s).classList.add('active');
-        window.scrollTo({top: 0, behavior: 'smooth'});
+        if(s === 3) setTimeout(initSignaturePads, 100);
+        window.scrollTo(0,0);
     }
 
     function preparePreview() {
-        document.getElementById('p_name').innerText = document.getElementById('m_name').value || "---";
-        document.getElementById('p_reg').innerText = document.getElementById('m_reg').value || "---";
-        document.getElementById('p_type').innerText = document.getElementById('m_type').value || "---";
+        // Map inputs to preview
+        const fields = ['range_name', 'range_reg', 'name', 'reg', 'type', 'place', 'date'];
+        fields.forEach(f => {
+            let val = document.getElementById('m_' + f).value || "---";
+            if(f === 'date' && val !== "---") val = new Date(val).toLocaleDateString('en-GB'); // Format date
+            document.getElementById('p_' + f).innerText = val;
+        });
 
-        let rowsHtml = "";
-        let t = { sm:0, sf:0, st:0, am:0, af:0, at:0, pm:0, pf:0, pt:0 };
-
+        let rowsHtml = "", t = { sm:0, sf:0, st:0, am:0, af:0, at:0, pm:0, pf:0, pt:0 };
         classes.forEach(cls => {
             const v = (id) => parseInt(document.getElementById(id + '_' + cls).value) || 0;
-            const sm = v('sm'), sf = v('sf'), st = sm + sf;
-            const am = v('am'), af = v('af'), at = am + af;
-            const pm = v('pm'), pf = v('pf'), pt = pm + pf;
-            const perc = at > 0 ? ((pt / at) * 100).toFixed(1) : "0.0";
-            
+            const sm = v('sm'), sf = v('sf'), st = sm + sf, am = v('am'), af = v('af'), at = am + af, pm = v('pm'), pf = v('pf'), pt = pm + pf;
             if(st > 0 || at > 0) {
                 t.sm+=sm; t.sf+=sf; t.st+=st; t.am+=am; t.af+=af; t.at+=at; t.pm+=pm; t.pf+=pf; t.pt+=pt;
-                rowsHtml += `<tr><td>${cls}</td><td>${sm}</td><td>${sf}</td><td>${st}</td>
-                    <td>${am}</td><td>${af}</td><td>${at}</td><td>${pm}</td><td>${pf}</td><td>${pt}</td><td>${perc}%</td></tr>`;
+                rowsHtml += `<tr><td>${cls}</td><td>${sm}</td><td>${sf}</td><td>${st}</td><td>${am}</td><td>${af}</td><td>${at}</td><td>${pm}</td><td>${pf}</td><td>${pt}</td><td>${at > 0 ? ((pt/at)*100).toFixed(1) : 0}%</td></tr>`;
             }
         });
         document.getElementById('pdf-rows').innerHTML = rowsHtml;
-        document.getElementById('footer-row').innerHTML = `<td>TOTAL</td><td>${t.sm}</td><td>${t.sf}</td><td>${t.st}</td><td>${t.am}</td><td>${t.af}</td><td>${t.at}</td><td>${t.pm}</td><td>${t.pf}</td><td>${t.pt}</td><td>${t.at > 0 ? ((t.pt / t.at) * 100).toFixed(1) : 0}%</td>`;
-        document.getElementById('p_final_perc').innerText = t.at > 0 ? ((t.pt / t.at) * 100).toFixed(2) : "0.00";
+        document.getElementById('footer-row').innerHTML = `<td>TOTAL</td><td>${t.sm}</td><td>${t.sf}</td><td>${t.st}</td><td>${t.am}</td><td>${t.af}</td><td>${t.at}</td><td>${t.pm}</td><td>${t.pf}</td><td>${t.pt}</td><td>${t.at > 0 ? ((t.pt/t.at)*100).toFixed(1) : 0}%</td>`;
+        document.getElementById('p_final_perc').innerText = t.at > 0 ? ((t.pt/t.at)*100).toFixed(2) : "0.00";
         changeStep(3);
     }
 
     function generatePDF() {
+        if (!sig1.isEmpty()) { document.getElementById('sig-img-1').src = sig1.toDataURL(); document.getElementById('sig-img-1').style.display = 'inline-block'; }
+        if (!sig2.isEmpty()) { document.getElementById('sig-img-2').src = sig2.toDataURL(); document.getElementById('sig-img-2').style.display = 'inline-block'; }
+        document.querySelectorAll('.no-print-sig').forEach(el => el.style.display = 'none');
+
         const element = document.getElementById('pdf-template');
-        const mName = document.getElementById('m_name').value || 'Madrasa';
-        
         const opt = {
-            margin: 0,
-            filename: 'Marklist_' + mName + '.pdf',
+            margin: 0, filename: 'Marklist_' + (document.getElementById('m_name').value || 'Report') + '.pdf',
             image: { type: 'jpeg', quality: 1 },
-            html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0, scrollX: 0, width: 794, windowWidth: 794 },
+            html2canvas: { scale: 2, scrollY: 0, windowWidth: 794 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
-        
+
         html2pdf().set(opt).from(element).save().then(() => {
-            alert("നിങ്ങളുടെ PDF വിജയകരമായി ഡൗൺലോഡ് ആയിട്ടുണ്ട്!\n\nഈ സേവനം നിങ്ങൾക്ക് ഉപകാരപ്പെട്ടുവെങ്കിൽ സപ്പോർട്ട് ചെയ്യാൻ ആഗ്രഹിക്കുന്നുണ്ടെങ്കിൽ 9895993822 എന്ന നമ്പറിലേക്ക് (GPay) ഒരു ചെറിയ തുക അയച്ചു തരാവുന്നതാണ്. \n\nസസ്നേഹം,\nഫാരിസ് സൈനി മണ്ണാർക്കാട്");
+            document.querySelectorAll('.no-print-sig').forEach(el => el.style.display = 'block');
+            document.querySelectorAll('.rendered-sig').forEach(el => el.style.display = 'none');
+            alert("ഡൗൺലോഡ് പൂർത്തിയായി! GPay: 9895993822 (Faris Zaini)");
         });
     }
 </script>
-
 </body>
 </html>
